@@ -10,10 +10,26 @@ const CODES = {
 //
 // Результат:
 // <div class="cell"></div>
-function toCell(_,col) {
-  return `
-    <div class="cell" data-col="${col}"></div>
-  `;
+
+// function toCell(row,col) {
+//   return `
+//     <div class="cell" data-col="${col} data-row="${row}"></div>
+//   `;
+// }
+//
+function toCell(row) {
+  return function (_, col) {
+    return `
+         <div
+         class="cell"
+         data-col="${col}"
+         data-type="cell"
+         data-id="${row}:${col}"
+         contenteditable="true"
+         ></div>
+       `;
+  }
+
 }
 
 // Создаёт одну колонку с названием.
@@ -146,7 +162,7 @@ export function createTable(rowsCount) {
   // i = 1 → строка 2
   // ...
   // i = 19 → строка 20
-  for (let i = 0; i < rowsCount; i++) {
+  for (let row = 0; row < rowsCount; row++) {
     // Создаём 26 ячеек для каждой строки.
     //
     // new Array(colsCount)
@@ -161,13 +177,17 @@ export function createTable(rowsCount) {
     //
     // join("")
     // → объединяем все ячейки в одну строку.
-    const cells = new Array(colsCount).fill("").map(toCell).join("");
+    const cells = new Array(colsCount)
+      .fill("")
+      // .map((_, col) => toCell(row, col))
+      .map(toCell(row))
+      .join("");
 
     // Добавляем готовую строку в массив rows.
     //
     // i + 1 нужен потому, что i начинается с 0,
     // а пользователю нужны номера строк начиная с 1.
-    rows.push(createRow(i + 1, cells));
+    rows.push(createRow(row + 1, cells));
   }
 
   // Объединяем все строки таблицы
