@@ -1,10 +1,37 @@
 // Объект с кодами ASCII для букв A и Z.
 // A = 65, Z = 90.
+
+import { defaultStyles } from "../../constants";
+import { toInlineStyles } from "../../core/utils";
+import { parse } from "../../core/parse";
+
 // Используем их, чтобы автоматически получить буквы A, B, C ... Z.
 const CODES = {
   A: 65,
   Z: 90,
 };
+
+// заданное значение ширины
+const DEFAULT_WIDTH = 120;
+// заданое значение высоты
+const DEFAULT_HEIGHT = 24;
+
+// функция размера ширины колонок
+function getWidth(state,index) {
+  return (state[index] || DEFAULT_WIDTH) + "px";
+}
+// функция размера в зависимости от размера колонки и строчки
+function withWidthFrom(state) {
+  return function (col,index) {
+    return {
+      col,index, width:getWidth(state.colState,index)
+     }
+   }
+}
+// функция высоты в зависимости от  размера колонки и строчки
+function getHeight(state, index) {
+  return (state[index] || DEFAULT_HEIGHT) + "px";
+}
 
 // Создаёт одну ячейку таблицы.
 //
@@ -17,16 +44,22 @@ const CODES = {
 //   `;
 // }
 //
-function toCell(row) {
+function toCell(state,row) {
   return function (_, col) {
+    const id = `${row}:${col}`
+    const width = getWidth(state.colState, col)
+    const data = state.dataState[id]
+    const styles = toInlineStyles({...defaultStyles,...state.stylesState[id]})
     return `
          <div
          class="cell"
          data-col="${col}"
          data-type="cell"
-         data-id="${row}:${col}"
+         data-id="${id}"
          contenteditable="true"
-         ></div>
+         data-value="${data || ''}"
+         style="${styles}; width: ${width}"
+         >${ parse(data) || ''}</div>
        `;
   }
 
@@ -39,9 +72,12 @@ function toCell(row) {
 //
 // Вернёт:
 // <div class="column">A</div>
-function toColumn(col, index) {
+function toColumn({ col, index, width }) {
   return `
-    <div class="column" data-type="resizable" data-col="${index}">
+    <div class="column"
+    data-type="resizable"
+    data-col="${index}"
+    style="width:${width}">
       ${col}
       <div class="col-resize" data-resize="col"></div>
     </div>
@@ -64,10 +100,11 @@ function toColumn(col, index) {
 //     <div class="cell"></div>
 //   </div>
 // </div>
-function createRow(index, content) {
+function createRow(index, content, state) {
   const resizer = index ? '<div class="row-resize" data-resize="row"></div>' : ''
+  const height = getHeight(state,index)
   return `
-    <div class="row" data-type="resizable">
+    <div class="row" data-type="resizable" data-row="${index}" style="height:${height}">
       <div class="row-info">${index ? index : ""}
         ${resizer}
       </div>
@@ -94,11 +131,19 @@ function toChar(_, index) {
   return String.fromCharCode(CODES.A + index);
 }
 
+
 // Главная функция, которая создаёт всю таблицу.
 //
 // rowsCount = 20 означает,
 // что по умолчанию будет создано 20 строк.
-export function createTable(rowsCount) {
+export function createTable(rowsCount = 15, state = {}) {
+  state = {
+    rowState: {},
+     colState: {},
+     dataState:{},
+    currentText: '',
+     ...state
+  }
   // Вычисляем количество колонок.
   //
   // Между A и Z находится 26 букв:
@@ -135,7 +180,12 @@ export function createTable(rowsCount) {
   //
   // join("")
   // объединяет всё в одну строку.
-  const cols = new Array(colsCount).fill("").map(toChar).map(toColumn).join("");
+  const cols = new Array(colsCount)
+    .fill("")
+    .map(toChar)
+    .map(withWidthFrom(state))
+    .map(toColumn)
+    .join("");
 
   // Создаём первую строку — строку с заголовками A-Z.
   //
@@ -151,7 +201,7 @@ export function createTable(rowsCount) {
   //     ...
   //   </div>
   // </div>
-  rows.push(createRow(null, cols));
+  rows.push(createRow(null, cols, {}));
 
   // Создаём обычные строки таблицы.
   //
@@ -179,15 +229,14 @@ export function createTable(rowsCount) {
     // → объединяем все ячейки в одну строку.
     const cells = new Array(colsCount)
       .fill("")
-      // .map((_, col) => toCell(row, col))
-      .map(toCell(row))
+      .map(toCell(state,row))
       .join("");
 
     // Добавляем готовую строку в массив rows.
     //
     // i + 1 нужен потому, что i начинается с 0,
     // а пользователю нужны номера строк начиная с 1.
-    rows.push(createRow(row + 1, cells));
+    rows.push(createRow(row + 1, cells,state.rowState));
   }
 
   // Объединяем все строки таблицы
