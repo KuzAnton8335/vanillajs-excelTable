@@ -13,6 +13,7 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
+    "mathjs": "^15.2.0",
     "normalize.css": "^8.0.1"
   }
 }
